@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+
+#include <string_view>
+
+namespace RUNW {
+
+using namespace std::literals::string_view_literals;
+
+#cmakedefine CPACK_PACKAGE_VERSION "@CPACK_PACKAGE_VERSION@"sv
+static inline std::string_view kVersionString [[maybe_unused]] =
+    CPACK_PACKAGE_VERSION;
+#undef CPACK_PACKAGE_VERSION
+
+#cmakedefine CMAKE_INSTALL_FULL_LIBDIR "@CMAKE_INSTALL_FULL_LIBDIR@"
+static inline std::string_view kInstallPluginDir [[maybe_unused]] =
+    CMAKE_INSTALL_FULL_LIBDIR "/runw"sv;
+#undef CMAKE_INSTALL_FULL_LIBDIR
+
+#cmakedefine CMAKE_INSTALL_FULL_LOCALSTATEDIR                                  \
+    "@CMAKE_INSTALL_FULL_LOCALSTATEDIR@"
+static inline std::string_view kContainerDir [[maybe_unused]] =
+    CMAKE_INSTALL_FULL_LOCALSTATEDIR "/lib/runw/containers"sv;
+#undef CMAKE_INSTALL_FULL_LOCALSTATEDIR
+
+#cmakedefine CMAKE_INSTALL_FULL_RUNSTATEDIR "@CMAKE_INSTALL_FULL_RUNSTATEDIR@"
+static inline std::string_view kStateDir [[maybe_unused]] =
+    CMAKE_INSTALL_FULL_RUNSTATEDIR "/runw"sv;
+#undef CMAKE_INSTALL_FULL_RUNSTATEDIR
+
+} // namespace RUNW
