@@ -34,8 +34,8 @@ bool Bundle::load(const std::filesystem::path &Path,
   simdjson::dom::parser Parser;
   simdjson::dom::object Config;
   if (auto Error = Parser.load(ConfigPath).get(Config)) {
-    LOG(ERROR) << ConfigPath.u8string() << " load failed:"sv
-               << simdjson::error_message(Error);
+    spdlog::error("{} load failed: {}"sv, ConfigPath.u8string(),
+                  simdjson::error_message(Error));
     return false;
   }
 
@@ -47,15 +47,15 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "args"sv) {
           simdjson::dom::array Args;
           if (auto Error = Element.get(Args)) {
-            LOG(ERROR) << "load args failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load args failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           for (const auto &Arg : Args) {
             std::string_view ArgStr;
             if (auto Error = Arg.get(ArgStr)) {
-              LOG(ERROR) << "load args arg failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load args arg failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             this->Args.emplace_back(ArgStr);
@@ -66,8 +66,8 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "consoleSize"sv) {
           simdjson::dom::object ConsoleSize;
           if (auto Error = Element.get(ConsoleSize)) {
-            LOG(ERROR) << "load consoleSize failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load consoleSize failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           for (const auto &[Key, Element] : ConsoleSize) {
@@ -75,8 +75,8 @@ bool Bundle::load(const std::filesystem::path &Path,
             case 'h':
               if (Key == "height"sv) {
                 if (auto Error = get_int(Element, ConsoleHeight)) {
-                  LOG(ERROR) << "load height failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load height failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
               }
@@ -84,8 +84,8 @@ bool Bundle::load(const std::filesystem::path &Path,
             case 'w':
               if (Key == "width"sv) {
                 if (auto Error = get_int(Element, ConsoleWidth)) {
-                  LOG(ERROR) << "load width failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load width failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
               }
@@ -97,16 +97,16 @@ bool Bundle::load(const std::filesystem::path &Path,
         } else if (Key == "cwd"sv) {
           std::string_view Cwd;
           if (auto Error = Element.get(Cwd)) {
-            LOG(ERROR) << "load cwd failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load cwd failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           this->Cwd = Cwd;
         } else if (Key == "capabilities"sv) {
           simdjson::dom::object Capabilities;
           if (auto Error = Element.get(Capabilities)) {
-            LOG(ERROR) << "load capabilities failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load capabilities failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
 
@@ -119,15 +119,15 @@ bool Bundle::load(const std::filesystem::path &Path,
               if (Error == simdjson::error_code::NO_SUCH_FIELD) {
                 return true;
               }
-              LOG(ERROR) << "load capability failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load capability failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             for (const auto &Name : Names) {
               std::string_view String;
               if (auto Error = Name.get(String)) {
-                LOG(ERROR) << "load capability name failed:"sv
-                           << simdjson::error_message(Error);
+                spdlog::error("load capability name failed: {}"sv,
+                              simdjson::error_message(Error));
                 return false;
               }
               Caps.emplace_back(String);
@@ -160,15 +160,15 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "env"sv) {
           simdjson::dom::array Envs;
           if (auto Error = Element.get(Envs)) {
-            LOG(ERROR) << "load env failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load env failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           for (const auto &Env : Envs) {
             std::string_view EnvStr;
             if (auto Error = Env.get(EnvStr)) {
-              LOG(ERROR) << "load env str failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load env str failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             this->Envs.emplace_back(EnvStr);
@@ -178,8 +178,8 @@ bool Bundle::load(const std::filesystem::path &Path,
       case 'n':
         if (Key == "noNewPrivileges"sv) {
           if (auto Error = Element.get(NoNewPrivileges)) {
-            LOG(ERROR) << "load noNewPrivileges failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load noNewPrivileges failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
         }
@@ -187,8 +187,8 @@ bool Bundle::load(const std::filesystem::path &Path,
       case 'o':
         if (Key == "oomScoreAdj"sv) {
           if (auto Error = get_int(Element, OomScoreAdj)) {
-            LOG(ERROR) << "load oomScoreAdj failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load oomScoreAdj failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
         }
@@ -197,33 +197,33 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "rlimits"sv) {
           simdjson::dom::array RLimits;
           if (auto Error = Process["rlimits"sv].get(RLimits)) {
-            LOG(ERROR) << "load rlimits failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load rlimits failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           for (const auto &RLimit : RLimits) {
             simdjson::dom::object RLimitObject;
             if (auto Error = RLimit.get(RLimitObject)) {
-              LOG(ERROR) << "load rlimits object failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load rlimits object failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             std::string_view Type;
             int64_t Soft;
             int64_t Hard;
             if (auto Error = RLimitObject["type"sv].get(Type)) {
-              LOG(ERROR) << "load rlimits type failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load rlimits type failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             if (auto Error = RLimitObject["soft"sv].get(Soft)) {
-              LOG(ERROR) << "load rlimits soft failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load rlimits soft failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             if (auto Error = RLimitObject["hard"sv].get(Hard)) {
-              LOG(ERROR) << "load rlimits hard failed:"sv
-                         << simdjson::error_message(Error);
+              spdlog::error("load rlimits hard failed: {}"sv,
+                            simdjson::error_message(Error));
               return false;
             }
             this->RLimits.emplace_back(Type, Soft, Hard);
@@ -233,8 +233,8 @@ bool Bundle::load(const std::filesystem::path &Path,
       case 't':
         if (Key == "terminal"sv) {
           if (auto Error = Element.get(Terminal)) {
-            LOG(ERROR) << "load terminal failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load terminal failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
         }
@@ -243,8 +243,8 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "user"sv) {
           simdjson::dom::object User;
           if (auto Error = Element.get(User)) {
-            LOG(ERROR) << "load user failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load user failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
 
@@ -253,14 +253,14 @@ bool Bundle::load(const std::filesystem::path &Path,
             case 'u':
               if (Key == "uid"sv) {
                 if (auto Error = get_int(Element, Uid)) {
-                  LOG(ERROR) << "load user uid failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load user uid failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
               } else if (Key == "umask"sv) {
                 if (auto Error = get_int(Element, UMask)) {
-                  LOG(ERROR) << "load user umask failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load user umask failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
               }
@@ -268,8 +268,8 @@ bool Bundle::load(const std::filesystem::path &Path,
             case 'g':
               if (Key == "gid"sv) {
                 if (auto Error = get_int(Element, Gid)) {
-                  LOG(ERROR) << "load user gid failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load user gid failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
               }
@@ -278,15 +278,15 @@ bool Bundle::load(const std::filesystem::path &Path,
               if (Key == "additionalGids"sv) {
                 simdjson::dom::array AGids;
                 if (auto Error = Element.get(AGids)) {
-                  LOG(ERROR) << "load user additionalGids failed:"sv
-                             << simdjson::error_message(Error);
+                  spdlog::error("load user additionalGids failed: {}"sv,
+                                simdjson::error_message(Error));
                   return false;
                 }
                 for (const auto &AGid : AGids) {
                   int32_t Value;
                   if (auto Error = get_int(AGid, Value)) {
-                    LOG(ERROR) << "load user additionalGids gid failed:"sv
-                               << simdjson::error_message(Error);
+                    spdlog::error("load user additionalGids gid failed: {}"sv,
+                                  simdjson::error_message(Error));
                     return false;
                   }
                   AdditionalGids.push_back(Value);
@@ -314,8 +314,8 @@ bool Bundle::load(const std::filesystem::path &Path,
         if (Key == "path"sv) {
           std::string_view RootPath;
           if (auto Error = Element.get(RootPath)) {
-            LOG(ERROR) << "load root path failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load root path failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
           this->RootPath = RootPath;
@@ -324,8 +324,8 @@ bool Bundle::load(const std::filesystem::path &Path,
       case 'r':
         if (Key == "readonly"sv) {
           if (auto Error = Element.get(RootReadonly)) {
-            LOG(ERROR) << "load root readonly failed:"sv
-                       << simdjson::error_message(Error);
+            spdlog::error("load root readonly failed: {}"sv,
+                          simdjson::error_message(Error));
             return false;
           }
         }

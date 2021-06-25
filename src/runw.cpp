@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#define ELPP_STL_LOGGING
 #include "cgroup.h"
 #include "config.h"
 #include "defines.h"
@@ -17,13 +16,16 @@
 #include <po/argument_parser.h>
 #include <po/subcommand.h>
 #include <random>
+#include <spdlog/sinks/basic_file_sink.h>
 #include <vm/vm.h>
 
 #ifdef RUNW_OS_LINUX
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 namespace {
@@ -52,7 +54,7 @@ template <typename FuncT>
 bool atomicCreateAndWriteFile(const std::filesystem::path &Path, FuncT &&Func) {
   if (std::error_code ErrCode;
       std::filesystem::is_regular_file(Path, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     return false;
   }
 
@@ -66,7 +68,7 @@ bool atomicCreateAndWriteFile(const std::filesystem::path &Path, FuncT &&Func) {
 
   if (std::error_code ErrCode;
       std::filesystem::rename(TempFile, Path, ErrCode), ErrCode) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     std::filesystem::remove(TempFile, ErrCode);
     return false;
   }
@@ -77,7 +79,7 @@ template <typename FuncT>
 bool atomicUpdateFile(const std::filesystem::path &Path, FuncT &&Func) {
   if (std::error_code ErrCode;
       !std::filesystem::is_regular_file(Path, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     return false;
   }
 
@@ -91,7 +93,7 @@ bool atomicUpdateFile(const std::filesystem::path &Path, FuncT &&Func) {
 
   if (std::error_code ErrCode;
       std::filesystem::rename(TempFile, Path, ErrCode), ErrCode) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     std::filesystem::remove(TempFile, ErrCode);
     return false;
   }
@@ -271,17 +273,18 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
                   RUNW::State &State, const std::filesystem::path &StateFile,
                   const int ExecFifoFd,
                   const int ConsoleSocketFd [[maybe_unused]]) {
-  SSVM::Configure Conf;
-  Conf.addProposal(SSVM::Proposal::BulkMemoryOperations);
-  Conf.addProposal(SSVM::Proposal::ReferenceTypes);
-  Conf.addProposal(SSVM::Proposal::SIMD);
+  WasmEdge::Configure Conf;
+  Conf.addProposal(WasmEdge::Proposal::BulkMemoryOperations);
+  Conf.addProposal(WasmEdge::Proposal::ReferenceTypes);
+  Conf.addProposal(WasmEdge::Proposal::SIMD);
 
-  Conf.addHostRegistration(SSVM::HostRegistration::Wasi);
-  Conf.addHostRegistration(SSVM::HostRegistration::SSVM_Process);
+  Conf.addHostRegistration(WasmEdge::HostRegistration::Wasi);
+  Conf.addHostRegistration(WasmEdge::HostRegistration::WasmEdge_Process);
 
-  SSVM::VM::VM VM(Conf);
-  SSVM::Host::WasiModule *WasiMod = dynamic_cast<SSVM::Host::WasiModule *>(
-      VM.getImportModule(SSVM::HostRegistration::Wasi));
+  WasmEdge::VM::VM VM(Conf);
+  WasmEdge::Host::WasiModule *WasiMod =
+      dynamic_cast<WasmEdge::Host::WasiModule *>(
+          VM.getImportModule(WasmEdge::HostRegistration::Wasi));
 
   const auto &Bundle = State.bundle();
 
@@ -292,72 +295,78 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   std::vector<std::string> Envs(Bundle.envs().begin(), Bundle.envs().end());
   auto WasmPath = Cwd / std::filesystem::u8path(Args[0]);
 
-  LOG(INFO) << "cwd:"sv << Cwd;
-  LOG(INFO) << "mount:"sv << RootPath.u8string() + ":/"s;
-  LOG(INFO) << "wasm path:"sv << WasmPath.u8string();
-  LOG(INFO) << "args:"sv << Args;
-  LOG(INFO) << "envs:"sv << Envs;
+  spdlog::info("cwd: {}"sv, Cwd);
+  spdlog::info("mount: {}"sv, "/:"s + RootPath.u8string());
+  spdlog::info("wasm path: {}"sv, WasmPath.u8string());
+  spdlog::info("args:"sv);
+  for (auto &Arg : Args) {
+    spdlog::info("\targ: {}", Arg);
+  }
+  spdlog::info("envs:"sv);
+  for (auto &Env : Envs) {
+    spdlog::info("\tenv: {}", Env);
+  }
 
-  WasiMod->getEnv().init(std::array{RootPath.u8string() + ":/"s},
-                         WasmPath.u8string(),
-                         SSVM::Span<const std::string>(Args).subspan(1), Envs);
+  WasiMod->getEnv().init(
+      std::array{"/:"s + RootPath.u8string()}, WasmPath.u8string(),
+      WasmEdge::Span<const std::string>(Args).subspan(1), Envs);
 
   std::filesystem::path SoPath;
   {
-    SSVM::Loader::Loader Loader(Conf);
-    std::vector<SSVM::Byte> Data;
+    WasmEdge::Loader::Loader Loader(Conf);
+    std::vector<WasmEdge::Byte> Data;
     if (auto Res = Loader.loadFile(WasmPath)) {
       Data = std::move(*Res);
     } else {
       const auto Err = static_cast<uint32_t>(Res.error());
-      LOG(INFO) << "Load failed. Error code:" << Err;
+      spdlog::info("Load failed. Error code: {}", Err);
       return EXIT_FAILURE;
     }
 
-    if (auto Res = SSVM::AOT::Cache::getPath(
-            Data, SSVM::AOT::Cache::StorageScope::Global, ContainerId)) {
+    if (auto Res = WasmEdge::AOT::Cache::getPath(
+            Data, WasmEdge::AOT::Cache::StorageScope::Global, ContainerId)) {
       SoPath = *Res;
       SoPath.replace_extension(std::filesystem::u8path(".so"sv));
     } else {
       const auto Err = static_cast<uint32_t>(Res.error());
-      LOG(INFO) << "Cache path get failed. Error code:" << Err;
+      spdlog::info("Cache path get failed. Error code: {}", Err);
       return EXIT_FAILURE;
     }
 
     if (!std::filesystem::is_regular_file(SoPath)) {
       if (std::error_code ErrCode;
           !std::filesystem::create_directories(SoPath.parent_path(), ErrCode)) {
-        LOG(ERROR) << ErrCode.message();
+        spdlog::error(ErrCode.message());
       }
 
       const pid_t CompilerPid = fork();
-      if (SSVM::unlikely(CompilerPid < 0)) {
-        LOG(ERROR) << "fork failed:"sv << std::strerror(errno);
+      if (WasmEdge::unlikely(CompilerPid < 0)) {
+        spdlog::error("fork failed: {}"sv, std::strerror(errno));
         return EXIT_FAILURE;
       }
       if (CompilerPid == 0) {
-        std::unique_ptr<SSVM::AST::Module> Module;
+        std::unique_ptr<WasmEdge::AST::Module> Module;
         if (auto Res = Loader.parseModule(Data)) {
           Module = std::move(*Res);
         } else {
           const auto Err = static_cast<uint32_t>(Res.error());
-          LOG(ERROR) << "Load failed. Error code:" << Err << std::endl;
+          spdlog::error("Load failed. Error code: {}", Err);
           exit(EXIT_FAILURE);
         }
 
         {
-          SSVM::Validator::Validator ValidatorEngine(Conf);
+          WasmEdge::Validator::Validator ValidatorEngine(Conf);
           if (auto Res = ValidatorEngine.validate(*Module); !Res) {
             const auto Err = static_cast<uint32_t>(Res.error());
-            LOG(ERROR) << "Validate failed. Error code:" << Err << std::endl;
+            spdlog::error("Validate failed. Error code: {}", Err);
             exit(EXIT_FAILURE);
           }
         }
 
-        SSVM::AOT::Compiler Compiler;
+        WasmEdge::AOT::Compiler Compiler(Conf);
         if (auto Res = Compiler.compile(Data, *Module, SoPath); !Res) {
           const auto Err = static_cast<uint32_t>(Res.error());
-          LOG(ERROR) << "Compile failed. Error code:" << Err << std::endl;
+          spdlog::error("Compile failed. Error code: {}", Err);
           exit(EXIT_FAILURE);
         }
 
@@ -365,7 +374,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
       } else {
         int Status;
         do {
-          LOG(INFO) << "wait compiling"sv;
+          spdlog::info("wait compiling"sv);
           if (auto Result = waitpid(CompilerPid, &Status, 0); Result < 0) {
             if (errno == EINTR) {
               continue;
@@ -373,7 +382,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
           }
         } while (false);
         if (WEXITSTATUS(Status) != EXIT_SUCCESS) {
-          LOG(ERROR) << "compiling failed, status:"sv << Status;
+          spdlog::error("compiling failed, status: {}"sv, Status);
           return EXIT_FAILURE;
         }
       }
@@ -384,23 +393,23 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
     return EXIT_FAILURE;
   }
 
-  LOG(INFO) << "wasm loaded"sv;
+  spdlog::info("wasm loaded"sv);
 
   if (auto Res = VM.validate(); !Res) {
     return EXIT_FAILURE;
   }
 
-  LOG(INFO) << "wasm validated"sv;
+  spdlog::info("wasm validated"sv);
 
   if (auto Res = VM.instantiate(); !Res) {
     return EXIT_FAILURE;
   }
 
-  LOG(INFO) << "wasm instantiate"sv;
+  spdlog::info("wasm instantiate"sv);
 
   const pid_t WasmPid = fork();
-  if (SSVM::unlikely(WasmPid < 0)) {
-    LOG(ERROR) << "fork failed:"sv << std::strerror(errno);
+  if (WasmEdge::unlikely(WasmPid < 0)) {
+    spdlog::error("fork failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
@@ -410,7 +419,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
 
   if (!atomicCreateAndWriteFile(std::filesystem::u8path(PidFile),
                                 [](auto &Stream) { Stream << getpid(); })) {
-    LOG(ERROR) << "pid file update failed"sv;
+    spdlog::error("pid file update failed"sv);
     return EXIT_FAILURE;
   }
 
@@ -426,7 +435,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
       }
       int Fd = open(Path.c_str(), O_RDONLY);
       if (Fd < 0) {
-        LOG(ERROR) << "open "sv << Path << ':' << std::strerror(errno);
+        spdlog::error("open {}:{}"sv, Path, std::strerror(errno));
         return false;
       }
       SetNsFlags.emplace_back(Fd, Flag);
@@ -499,7 +508,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
     bool SetNsFailed = false;
     for (const auto &[Fd, Flag] : SetNsFlags) {
       if (int Ret = setns(Fd, Flag); Ret < 0) {
-        LOG(ERROR) << "cannot setns:"sv << std::strerror(errno);
+        spdlog::error("cannot setns: {}"sv, std::strerror(errno));
         SetNsFailed = true;
       }
       close(Fd);
@@ -513,7 +522,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   }
   if (!atomicUpdateFile(StateFile,
                         [&](auto &Stream) { State.print(Stream); })) {
-    LOG(ERROR) << "state file update failed"sv;
+    spdlog::error("state file update failed"sv);
     return EXIT_FAILURE;
   }
 
@@ -526,7 +535,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
     do {
       if (int Ret = select(ExecFifoFd + 1, &ReadSet, NULL, NULL, NULL);
           Ret < 0) {
-        LOG(ERROR) << "select exec fifo failed:"sv << std::strerror(errno);
+        spdlog::error("select exec fifo failed: {}"sv, std::strerror(errno));
         return EXIT_FAILURE;
       }
 
@@ -535,7 +544,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
           if (errno == EINTR) {
             continue;
           }
-          LOG(ERROR) << "read exec fifo failed:"sv << std::strerror(errno);
+          spdlog::error("read exec fifo failed: {}"sv, std::strerror(errno));
           return EXIT_FAILURE;
         }
       } while (false);
@@ -548,14 +557,14 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
     return EXIT_FAILURE;
   }
 
-  LOG(INFO) << "wasm running"sv;
+  spdlog::info("wasm running"sv);
 
   auto Res = VM.execute("_start"sv);
   if (!Res) {
-    LOG(ERROR) << "execute failed:"sv << SSVM::ErrCodeStr[Res.error()];
+    spdlog::error("execute failed: {}"sv, WasmEdge::ErrCodeStr[Res.error()]);
   }
 
-  LOG(INFO) << "wasm stopped"sv;
+  spdlog::info("wasm stopped"sv);
 
   const int ExitCode = Res ? WasiMod->getEnv().getExitCode() : EXIT_FAILURE;
   State.setStopped(ExitCode);
@@ -575,7 +584,7 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
   const auto ContainerRoot = std::filesystem::u8path(Root) / ContainerId;
   if (std::error_code ErrCode;
       !std::filesystem::create_directories(ContainerRoot, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     return EXIT_FAILURE;
   }
 
@@ -590,7 +599,7 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
   const auto StateFile = ContainerRoot / "state.json"sv;
   RUNW::State State(ContainerId, Path);
   if (!State.loadBundle(ConfigFileName)) {
-    LOG(ERROR) << "load bundle failed"sv;
+    spdlog::error("load bundle failed"sv);
     return EXIT_FAILURE;
   }
 
@@ -599,13 +608,13 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
   State.setCreating();
   if (!atomicCreateAndWriteFile(StateFile,
                                 [&](auto &Stream) { State.print(Stream); })) {
-    LOG(ERROR) << "state file update failed"sv;
+    spdlog::error("state file update failed"sv);
     return EXIT_FAILURE;
   }
 
   const auto ExecFifoFile = ContainerRoot / "exec.fifo"sv;
   if (int Ret = mkfifo(ExecFifoFile.u8string().c_str(), 0600); Ret < 0) {
-    LOG(ERROR) << "mkfifo failed:"sv << std::strerror(errno);
+    spdlog::error("mkfifo failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
@@ -616,18 +625,18 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
     }
   };
   if (ExecFifoFd < 0) {
-    LOG(ERROR) << "open fifo failed:"sv << std::strerror(errno);
+    spdlog::error("open fifo failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
   int Pipe[2];
-  if (SSVM::unlikely(pipe(Pipe) < 0)) {
-    LOG(ERROR) << "pipe failed:"sv << std::strerror(errno);
+  if (WasmEdge::unlikely(pipe(Pipe) < 0)) {
+    spdlog::error("pipe failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
   const pid_t ChildPid = fork();
-  if (SSVM::unlikely(ChildPid < 0)) {
-    LOG(ERROR) << "fork failed:"sv << std::strerror(errno);
+  if (WasmEdge::unlikely(ChildPid < 0)) {
+    spdlog::error("fork failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
   if (ChildPid > 0) {
@@ -647,7 +656,7 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
         if (errno == EINTR) {
           continue;
         }
-        LOG(ERROR) << "parent read failed:"sv << std::strerror(errno);
+        spdlog::error("parent read failed: {}"sv, std::strerror(errno));
         return EXIT_FAILURE;
       } else if (Result > 0) {
         if (ExitCode != 0) {
@@ -687,12 +696,12 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
   if (!ConsoleSocket.empty()) {
     ConsoleSocketFd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (ConsoleSocketFd < 0) {
-      LOG(ERROR) << "socket failed:"sv << std::strerror(errno);
+      spdlog::error("socket failed: {}"sv, std::strerror(errno));
       return EXIT_FAILURE;
     }
     struct sockaddr_un Addr = {};
     if (ConsoleSocket.size() >= sizeof(Addr.sun_path)) {
-      LOG(ERROR) << "socket path too long:"sv << ConsoleSocket;
+      spdlog::error("socket path too long: {}"sv, ConsoleSocket);
       return EXIT_FAILURE;
     }
     std::copy(ConsoleSocket.begin(), ConsoleSocket.end(), Addr.sun_path);
@@ -701,7 +710,7 @@ int doCreate(std::string_view Root, bool SystemdCgroup [[maybe_unused]],
             connect(ConsoleSocketFd, reinterpret_cast<struct sockaddr *>(&Addr),
                     sizeof(Addr));
         Ret < 0) {
-      LOG(ERROR) << "socket connect failed:"sv << std::strerror(errno);
+      spdlog::error("socket connect failed: {}"sv, std::strerror(errno));
       return EXIT_FAILURE;
     }
   }
@@ -722,7 +731,7 @@ int doDelete(std::string_view Root, std::string_view ContainerId, bool Force) {
 
   if (std::error_code ErrCode;
       !std::filesystem::is_directory(ContainerRoot, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     if (!Force) {
       return EXIT_FAILURE;
     }
@@ -730,13 +739,14 @@ int doDelete(std::string_view Root, std::string_view ContainerId, bool Force) {
 
   if (std::error_code ErrCode;
       std::filesystem::remove_all(ContainerRoot, ErrCode), ErrCode) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     if (!Force) {
       return EXIT_FAILURE;
     }
   }
 
-  SSVM::AOT::Cache::clear(SSVM::AOT::Cache::StorageScope::Global, ContainerId);
+  WasmEdge::AOT::Cache::clear(WasmEdge::AOT::Cache::StorageScope::Global,
+                              ContainerId);
 
   return EXIT_SUCCESS;
 }
@@ -783,7 +793,7 @@ int doStart(std::string_view Root, std::string_view ConfigFileName,
   const auto StateFile = ContainerRoot / "state.json"sv;
   if (std::error_code ErrCode;
       !std::filesystem::is_regular_file(StateFile, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     return EXIT_FAILURE;
   }
 
@@ -801,18 +811,18 @@ int doStart(std::string_view Root, std::string_view ConfigFileName,
     }
   };
   if (ExecFifoFd < 0) {
-    LOG(ERROR) << "open fifo failed:"sv << std::strerror(errno);
+    spdlog::error("open fifo failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
   if (int Ret = unlink(ExecFifoFile.u8string().c_str()); Ret < 0) {
-    LOG(ERROR) << "unlink exec fifo failed:"sv << std::strerror(errno);
+    spdlog::error("unlink exec fifo failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
   char Buffer[1] = {};
   if (int Ret = write(ExecFifoFd, Buffer, sizeof(Buffer)); Ret < 0) {
-    LOG(ERROR) << "read exec fifo failed:"sv << std::strerror(errno);
+    spdlog::error("read exec fifo failed: {}"sv, std::strerror(errno));
     return EXIT_FAILURE;
   }
 
@@ -825,7 +835,7 @@ int doState(std::string_view Root, std::string_view ContainerId) {
   const auto ContainerRoot = std::filesystem::u8path(Root) / ContainerId;
   if (std::error_code ErrCode;
       !std::filesystem::is_directory(ContainerRoot, ErrCode)) {
-    LOG(ERROR) << ErrCode.message();
+    spdlog::error(ErrCode.message());
     return EXIT_FAILURE;
   }
 
@@ -842,25 +852,20 @@ int doState(std::string_view Root, std::string_view ContainerId) {
 } // namespace
 
 int main(int Argc, const char *Argv[]) {
-  namespace PO = SSVM::PO;
+  namespace PO = WasmEdge::PO;
 
   std::ios::sync_with_stdio(false);
-  SSVM::Log::setErrorLoggingLevel();
+  auto FileLogger = spdlog::basic_logger_mt("file_logger", "/tmp/runw.log");
+  spdlog::set_default_logger(FileLogger);
+  WasmEdge::Log::setDebugLoggingLevel();
 
   {
-    el::Configurations DefaultConf;
-    for (const auto Level :
-         {el::Level::Global, el::Level::Trace, el::Level::Debug,
-          el::Level::Fatal, el::Level::Error, el::Level::Warning,
-          el::Level::Verbose, el::Level::Info}) {
-      DefaultConf.set(Level, el::ConfigurationType::Filename, "/tmp/runw.log"s);
-      DefaultConf.set(Level, el::ConfigurationType::ToStandardOutput, "false"s);
+    auto MainArgs = std::vector(Argv, Argv + Argc);
+    spdlog::info("MainArgs:"sv);
+    for (auto &Arg : MainArgs) {
+      spdlog::info("\tArg: {}", Arg);
     }
-    DefaultConf.setRemainingToDefault();
-    el::Loggers::reconfigureLogger("default", DefaultConf);
   }
-
-  LOG(INFO) << std::vector(Argv, Argv + Argc);
 
   PO::SubCommand Create(PO::Description("Create a container"sv));
   PO::SubCommand Delete(
