@@ -81,7 +81,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   ssvm
   GIT_REPOSITORY https://github.com/second-state/SSVM.git
-  GIT_TAG        beststeve/cache
+  GIT_TAG        beststeve/wasi-fs
 )
 
 FetchContent_MakeAvailable(simdjson ssvm)

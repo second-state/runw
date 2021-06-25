@@ -21,24 +21,25 @@ public:
   }
 
   ~SDBus() noexcept;
-  static std::experimental::expected<SDBus, int> defaultUser() noexcept;
-  static std::experimental::expected<SDBus, int> defaultSystem() noexcept;
+  static cxx20::expected<SDBus, int> defaultUser() noexcept;
+  static cxx20::expected<SDBus, int> defaultSystem() noexcept;
 
-  std::experimental::expected<void, int>
+  cxx20::expected<void, int>
   matchSignalAsync(const char *Sender, const char *Path, const char *Interface,
                    const char *Member,
                    std::function<int(SDBusMessage &)> &Callback) noexcept;
 
-  std::experimental::expected<SDBusMessage, int>
-  methodCall(const char *Destination, const char *Path, const char *Interface,
-             const char *Member) noexcept;
+  cxx20::expected<SDBusMessage, int> methodCall(const char *Destination,
+                                                const char *Path,
+                                                const char *Interface,
+                                                const char *Member) noexcept;
 
-  std::experimental::expected<SDBusMessage, int> call(SDBusMessage Message,
-                                                      uint64_t USec) noexcept;
+  cxx20::expected<SDBusMessage, int> call(SDBusMessage Message,
+                                          uint64_t USec) noexcept;
 
-  std::experimental::expected<bool, int> process() noexcept;
+  cxx20::expected<bool, int> process() noexcept;
 
-  std::experimental::expected<void, int> wait(uint64_t TimeoutUSec) noexcept;
+  cxx20::expected<void, int> wait(uint64_t TimeoutUSec) noexcept;
 
 private:
   static int matchSignalAsyncCallback(sd_bus_message *m, void *userdata,
@@ -62,27 +63,25 @@ public:
   ~SDBusMessage() noexcept;
 
   template <typename... ArgsT>
-  std::experimental::expected<void, int> read(const char *Types,
-                                              ArgsT &...Args) noexcept {
+  cxx20::expected<void, int> read(const char *Types, ArgsT &... Args) noexcept {
     if (const int Err = sd_bus_message_read(Msg, Types, &Args...); Err < 0) {
-      return std::experimental::unexpected(-Err);
+      return cxx20::unexpected(-Err);
     }
     return {};
   }
 
   template <typename... ArgsT>
-  std::experimental::expected<void, int> append(const char *Types,
-                                                ArgsT... Args) noexcept {
+  cxx20::expected<void, int> append(const char *Types, ArgsT... Args) noexcept {
     if (const int Err = sd_bus_message_append(Msg, Types, Args...); Err < 0) {
-      return std::experimental::unexpected(-Err);
+      return cxx20::unexpected(-Err);
     }
     return {};
   }
 
-  std::experimental::expected<void, int>
-  openContainer(char Type, const char *Contents) noexcept;
+  cxx20::expected<void, int> openContainer(char Type,
+                                           const char *Contents) noexcept;
 
-  std::experimental::expected<void, int> closeContainer() noexcept;
+  cxx20::expected<void, int> closeContainer() noexcept;
 
   sd_bus_message *release() noexcept { return std::exchange(Msg, nullptr); }
 

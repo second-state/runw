@@ -6,7 +6,7 @@
 #include "sdbus.h"
 #include "state.h"
 #include <common/log.h>
-#include <streambuf>
+#include <fstream>
 #include <sys/vfs.h>
 
 using namespace std::literals;
@@ -17,18 +17,18 @@ namespace {
 
 class JobStatusChecker {
 public:
-  std::experimental::expected<void, int> setup(SDBus &Bus) noexcept {
+  cxx20::expected<void, int> setup(SDBus &Bus) noexcept {
     return Bus.matchSignalAsync(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager", "JobRemoved", Callback);
   }
-  std::experimental::expected<void, int> check(SDBus &Bus, const char *Path,
-                                               const char *Op) noexcept {
+  cxx20::expected<void, int> check(SDBus &Bus, const char *Path,
+                                   const char *Op) noexcept {
     this->Path = Path;
     this->Op = Op;
     while (!Terminated) {
       if (auto Res = Bus.process(); !Res) {
-        LOG(ERROR) << "sd-bus process:"sv << strerror(Res.error());
+        spdlog::error("sd-bus process: {}"sv, strerror(Res.error()));
         return Res.map([](auto) {});
       } else {
         if (*Res) {
@@ -36,12 +36,12 @@ public:
         }
       }
       if (auto Res = Bus.wait(std::numeric_limits<uint64_t>::max()); !Res) {
-        LOG(ERROR) << "sd-bus wait:"sv << strerror(Res.error());
+        spdlog::error("sd-bus wait: {}"sv, strerror(Res.error()));
         return Res;
       }
     }
     if (Error) {
-      return std::experimental::unexpected(EFAULT);
+      return cxx20::unexpected(EFAULT);
     }
     return {};
   }
@@ -57,8 +57,8 @@ private:
     if (std::strcmp(Path, MPath) == 0) {
       Terminated = true;
       if (std::strcmp(MResult, "done") != 0) {
-        LOG(ERROR) << "error "sv << Op << " systemd unit `"sv << MUnit
-                   << "`: got `"sv << MResult << '`';
+        spdlog::error("error {} systemd unit `{}`: got `{}`"sv, Op, MUnit,
+                      MResult);
         Error = true;
       }
     }
@@ -97,12 +97,11 @@ CGroup::Mode checkMode() noexcept {
   return CGroup::Mode::Legacy;
 }
 
-std::experimental::expected<std::string, int>
-readAll(std::filesystem::path Path) {
+cxx20::expected<std::string, int> readAll(std::filesystem::path Path) {
   std::string Content;
   std::filebuf File;
   if (!File.open(Path, std::ios_base::in | std::ios_base::binary)) {
-    return std::experimental::unexpected(errno);
+    return cxx20::unexpected(errno);
   }
 
   std::array<char, 4096> Buffer;
@@ -116,21 +115,21 @@ readAll(std::filesystem::path Path) {
 
 const CGroup::Mode CGroup::CGroupMode = checkMode();
 
-std::experimental::expected<void, int>
-CGroup::enter(std::string_view ContainerId, const State &State) noexcept {
+cxx20::expected<void, int> CGroup::enter(std::string_view ContainerId,
+                                         const State &State) noexcept {
   SDBus Bus;
   if (auto Res = SDBus::defaultUser()) {
     Bus = std::move(*Res);
   } else if (auto Res = SDBus::defaultSystem()) {
     Bus = std::move(*Res);
   } else {
-    LOG(ERROR) << "cannot open sd-bus:"sv << strerror(Res.error());
+    spdlog::error("cannot open sd-bus: {}"sv, strerror(Res.error()));
     return Res.map([](const auto &) {});
   }
 
   JobStatusChecker Checker;
   if (auto Res = Checker.setup(Bus); !Res) {
-    LOG(ERROR) << "sd-bus match signal:"sv << strerror(Res.error());
+    spdlog::error("sd-bus match signal: {}"sv, strerror(Res.error()));
     return Res;
   }
 
@@ -141,7 +140,7 @@ CGroup::enter(std::string_view ContainerId, const State &State) noexcept {
       Res) {
     Msg = std::move(*Res);
   } else {
-    LOG(ERROR) << "set up dbus message:"sv << strerror(Res.error());
+    spdlog::error("set up dbus message: {}"sv, strerror(Res.error()));
     return Res.map([](const auto &) {});
   }
 
@@ -168,18 +167,18 @@ CGroup::enter(std::string_view ContainerId, const State &State) noexcept {
   }
 
   if (auto Res = Msg.append("ss", Scope.c_str(), "fail"); !Res) {
-    LOG(ERROR) << "sd-bus message append scope:"sv << strerror(Res.error());
+    spdlog::error("sd-bus message append scope: {}"sv, strerror(Res.error()));
     return Res;
   }
 
   if (auto Res = Msg.openContainer('a', "(sv)"); !Res) {
-    LOG(ERROR) << "sd_bus open container:"sv << strerror(Res.error());
+    spdlog::error("sd_bus open container: {}"sv, strerror(Res.error()));
     return Res;
   }
 
   if (!Slice.empty()) {
     if (auto Res = Msg.append("(sv)", "Slice", "s", Slice.c_str()); !Res) {
-      LOG(ERROR) << "sd-bus message append Slice:"sv << strerror(Res.error());
+      spdlog::error("sd-bus message append Slice: {}"sv, strerror(Res.error()));
       return Res;
     }
   }
@@ -188,14 +187,14 @@ CGroup::enter(std::string_view ContainerId, const State &State) noexcept {
 
   if (auto Res = Msg.append("(sv)", "Description", "s", "runw container");
       !Res) {
-    LOG(ERROR) << "sd-bus message append Description:"sv
-               << strerror(Res.error());
+    spdlog::error("sd-bus message append Description: {}"sv,
+                  strerror(Res.error()));
     return Res;
   }
 
   if (auto Res = Msg.append("(sv)", "PIDs", "au", 1, State.getPid()); !Res) {
-    LOG(ERROR) << "sd-bus message append Description:"sv
-               << strerror(Res.error());
+    spdlog::error("sd-bus message append Description: {}"sv,
+                  strerror(Res.error()));
     return Res;
   }
 
@@ -204,42 +203,42 @@ CGroup::enter(std::string_view ContainerId, const State &State) noexcept {
       continue;
     }
     if (auto Res = Msg.append("(sv)", Name, "b", 1); !Res) {
-      LOG(ERROR) << "sd-bus message append "sv << Name << ':'
-                 << strerror(Res.error());
+      spdlog::error("sd-bus message append {}:{}"sv, Name,
+                    strerror(Res.error()));
       return Res;
     }
   }
 
   if (auto Res = Msg.closeContainer(); !Res) {
-    LOG(ERROR) << "sd-bus close container:"sv << strerror(Res.error());
+    spdlog::error("sd-bus close container: {}"sv, strerror(Res.error()));
     return Res;
   }
 
   if (auto Res = Msg.append("a(sa(sv))", nullptr); !Res) {
-    LOG(ERROR) << "sd-bus message append:"sv << strerror(Res.error());
+    spdlog::error("sd-bus message append: {}"sv, strerror(Res.error()));
     return Res;
   }
 
   if (auto Res = Bus.call(std::move(Msg), 0)) {
     Msg = std::move(*Res);
   } else {
-    LOG(ERROR) << "sd-bus call:"sv << strerror(Res.error());
+    spdlog::error("sd-bus call: {}"sv, strerror(Res.error()));
     return Res.map([](const auto &) {});
   }
 
   const char *Object;
   if (auto Res = Msg.read("o", Object); !Res) {
-    LOG(ERROR) << "sd-bus message read:"sv << strerror(Res.error());
+    spdlog::error("sd-bus message read: {}"sv, strerror(Res.error()));
     return Res;
   }
 
   return Checker.check(Bus, Object, "creating");
 }
 
-std::experimental::expected<void, int> CGroup::finalize(const State &State) {
+cxx20::expected<void, int> CGroup::finalize(const State &State) {
   if (CGroupMode == Mode::Unknown) {
-    LOG(ERROR) << "unknown cgroup mode"sv;
-    return std::experimental::unexpected(EINVAL);
+    spdlog::error("unknown cgroup mode"sv);
+    return cxx20::unexpected(EINVAL);
   }
 
   const auto CgroupPath =
@@ -257,27 +256,27 @@ std::experimental::expected<void, int> CGroup::finalize(const State &State) {
   if (CGroupMode == Mode::Legacy) {
     auto From = Content.find(":memory"sv);
     if (From == std::string::npos) {
-      LOG(ERROR) << "cannot find memory controller for the current process"sv;
-      return std::experimental::unexpected(EINVAL);
+      spdlog::error("cannot find memory controller for the current process"sv);
+      return cxx20::unexpected(EINVAL);
     }
     From += 8;
     auto To = Content.find('\n', From);
     if (To == std::string::npos) {
-      LOG(ERROR) << "cannot parse /proc/self/cgroup"sv;
-      return std::experimental::unexpected(EINVAL);
+      spdlog::error("cannot parse /proc/self/cgroup"sv);
+      return cxx20::unexpected(EINVAL);
     }
     std::string Path = Content.substr(From, To - From);
   } else {
     auto From = Content.find("0::"sv);
     if (From == std::string::npos) {
-      LOG(ERROR) << "cannot find cgroup2 for the current process"sv;
-      return std::experimental::unexpected(EINVAL);
+      spdlog::error("cannot find cgroup2 for the current process"sv);
+      return cxx20::unexpected(EINVAL);
     }
     From += 3;
     auto To = Content.find('\n', From);
     if (To == std::string::npos) {
-      LOG(ERROR) << "cannot parse /proc/self/cgroup"sv;
-      return std::experimental::unexpected(EINVAL);
+      spdlog::error("cannot parse /proc/self/cgroup"sv);
+      return cxx20::unexpected(EINVAL);
     }
     std::string Path = Content.substr(From, To - From);
   }

@@ -6,8 +6,8 @@
 #include <common/log.h>
 
 using namespace std::literals;
-using std::experimental::expected;
-using std::experimental::unexpected;
+using cxx20::expected;
+using cxx20::unexpected;
 
 namespace RUNW {
 
@@ -67,7 +67,7 @@ expected<SDBusMessage, int> SDBus::call(SDBusMessage Message,
   sd_bus_message *Msg = Message.release();
   SDBusError Error;
   if (const int Err = sd_bus_call(Bus, Msg, USec, Error.get(), &Msg); Err < 0) {
-    LOG(ERROR) << "call failed:"sv << Error.get()->message;
+    spdlog::error("call failed: {}"sv, Error.get()->message);
     return unexpected(Error.getErrNo());
   }
   return SDBusMessage(Msg);

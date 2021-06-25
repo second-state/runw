@@ -22,11 +22,11 @@ public:
   uint32_t consoleWidth() const noexcept { return ConsoleWidth; }
   uint32_t consoleHeight() const noexcept { return ConsoleHeight; }
   std::string_view cwd() const noexcept { return Cwd; }
-  std::span<const std::string> envs() const noexcept { return Envs; }
-  std::span<const std::string> args() const noexcept { return Args; }
+  cxx20::span<const std::string> envs() const noexcept { return Envs; }
+  cxx20::span<const std::string> args() const noexcept { return Args; }
   std::string_view rootPath() const noexcept { return RootPath; }
   std::string_view linuxCgroupsPath() const noexcept { return CgroupsPath; }
-  std::span<const NamespaceDesc> linuxNamespaces() const noexcept {
+  cxx20::span<const NamespaceDesc> linuxNamespaces() const noexcept {
     return Namespaces;
   }
 

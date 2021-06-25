@@ -30,9 +30,9 @@ target_include_directories(runw
 target_link_libraries(runw
   PUBLIC
   ${SYSTEMD_LIBRARIES}
-  ssvmCommon
-  ssvmVM
-  ssvmAOT
+  wasmedgeCommon
+  wasmedgeVM
+  wasmedgeAOT
   simdjson
 )
 
