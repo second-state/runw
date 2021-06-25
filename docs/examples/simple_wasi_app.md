@@ -1,81 +1,44 @@
-# Introduction
+# WASI standalone app
 
-**RUNW** is a OCI compatible runtime for running WASI enabled WebAssembly file inside a container envrionment.
+In this example, we demonstrate how to build a standalone WASM application from the rust application.
 
-# Getting Started
+## Prerequisites
 
-## Prerequisite
+If you have not done so already, follow these simple instructions to [install Rust, Node.js, wasmedge, and ssvmup](https://www.secondstate.io/articles/setup-rust-nodejs/).
 
-Please refer to their document for the installation details.
-
-* [cri-o](https://cri-o.io/)
-* [crictl](https://github.com/kubernetes-sigs/cri-tools)
-* Optional [buildah](https://github.com/containers/buildah) or [docker](https://github.com/docker/cli) for building container image
-
-## Use pre-built runw
-
-### Environment
-
-Our pre-built binary is based on `ubuntu 20.04` with the following dependencies:
-
-* libLLVM-10
-
-You need to install the dependencies with:
+## Download example code
 
 ```bash
-sudo apt install -y \
-        llvm-10-dev \
-        liblld-10-dev
+git clone git@github.com:second-state/wasm-learning.git
+cd ssvm/wasi
 ```
 
-### Get pre-built runw from the release page
+## Build the WASM bytecode
 
 ```bash
-wget https://github.com/second-state/runw/releases/download/0.1.0/runw
+ssvmup build
 ```
 
-## Install runw into cri-o
+## Create Dockerfile
+
+Create a file called `Dockerfile` in the `pkg` folder with the following content:
+
+```
+FROM scratch
+ADD wasi_example_main.wasm .
+CMD ["wasi_example_main.wasm"]
+```
+
+## Create container image
+
+This example uses [buildah](https://github.com/containers/buildah) to build image. You can use any other tools to create container image.
 
 ```bash
-# Get the wasm-pause utility
-sudo crictl pull docker.io/beststeve/wasm-pause
-
-# Install runw into cri-o
-sudo cp -v runw /usr/lib/cri-o-runc/sbin/runw
-sudo sed -i -e 's@default_runtime = "runc"@default_runtime = "runw"@' /etc/crio/crio.conf
-sudo sed -i -e 's@pause_image = "k8s.gcr.io/pause:3.2"@pause_image = "docker.io/beststeve/wasm-pause"@' /etc/crio/crio.conf
-sudo sed -i -e 's@pause_command = "/pause"@pause_command = "pause.wasm"@' /etc/crio/crio.conf
-sudo tee -a /etc/crio/crio.conf.d/01-crio-runc.conf <<EOF
-[crio.runtime.runtimes.runw]
-runtime_path = "/usr/lib/cri-o-runc/sbin/runw"
-runtime_type = "oci"
-runtime_root = "/run/runw"
-EOF
+sudo buildah bud -f Dockerfile -t wasm-wasi-example
+sudo buildah push wasm-wasi-example docker://registry.example.com/repository:tag
 ```
 
-## Restart cri-o
-
-```bash
-sudo systemctl restart crio
-```
-
-# Examples
-
-## Simple Wasi Application
-
-In this example, we would like to demostrate how to create a simple rust application to get program arguments, retrieve environment variables, generate random number, print string to stdout, and create a file.
-
-For creating the container image and application details, please refer to [Simple Wasi Application](docs/examples/simple_wasi_app.md).
-
-### Download wasi-main docker image
-
-We've create a docker image called `wasi-main` which is a very light docker image with the `wasi_example_main.wasm` file.
-
-```bash
-sudo crictl pull docker.io/hydai/wasm-wasi-example
-```
-
-### Create container config
+## Create container config
 
 Create a file called `container_wasi.json` with the following content:
 
@@ -127,7 +90,7 @@ Create a file called `container_wasi.json` with the following content:
 }
 ```
 
-### Create sandbox configuration file
+## Create sandbox configuration file
 Create a file called `sandbox_config.json` with the following content:
 
 ```json
@@ -182,7 +145,7 @@ Create a file called `sandbox_config.json` with the following content:
 }
 ```
 
-### Create cri-o POD
+## Create cri-o POD
 ```bash
 # Create the POD. Output will be different from example.
 sudo crictl runp sandbox_config.json
@@ -191,14 +154,14 @@ sudo crictl runp sandbox_config.json
 POD_ID=7992e75df00cc1cf4bff8bff660718139e3ad973c7180baceb9c84d074b516a4
 ```
 
-### Create Container
+## Create Container
 ```bash
 # Create the container instance. Output will be different from example.
 sudo crictl create $POD_ID container_nbody.json sandbox_config.json
 1d056e4a8a168f0c76af122d42c98510670255b16242e81f8e8bce8bd3a4476f
 ```
 
-### Start Container
+## Start Container
 ```bash
 # List the container, the state should be `Created`
 sudo crictl ps -a
@@ -251,60 +214,4 @@ Test 6: Read the content from the previous file
 File content is This is in a file
 
 Test 7: Delete the previous file
-```
-
-# Appendix
-
-## Build from source
-
-### Get Source Code
-
-```bash
-$ git clone git@github.com:second-state/runw.git
-$ cd runw
-$ git checkout 0.1.0
-```
-
-### Prepare the environment
-
-#### Use our docker image
-
-Our docker image use `ubuntu 20.04` as the base.
-
-```bash
-$ docker pull secondstate/runw
-```
-
-#### Or setup the environment manually
-
-```bash
-# Tools and libraries
-$ sudo apt install -y \
-        software-properties-common \
-        cmake \
-        libboost-all-dev \
-        libsystemd-dev
-
-# And you will need to install llvm
-$ sudo apt install -y \
-        llvm-10-dev \
-        liblld-10-dev
-
-# RUNW supports both clang++ and g++ compilers
-# You can choose one of them for building this project
-$ sudo apt install -y gcc g++
-$ sudo apt install -y clang
-```
-
-### Build RUNW
-
-```bash
-# After pulling our runw docker image
-$ docker run -it --rm \
-    -v <path/to/your/runw/source/folder>:/root/runw \
-    secondstate/runw:latest
-(docker)$ cd /root/runw
-(docker)$ mkdir -p build && cd build
-(docker)$ cmake -DCMAKE_BUILD_TYPE=Release .. && make -j
-(docker)$ exit
 ```
