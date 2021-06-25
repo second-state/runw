@@ -24,7 +24,7 @@ $ git checkout 0.0.1
 Our docker image use `ubuntu 20.04` as the base.
 
 ```bash
-$ docker pull secondstate/ssvm
+$ docker pull secondstate/runw
 ```
 
 ### Or setup the environment manually
@@ -34,14 +34,15 @@ $ docker pull secondstate/ssvm
 $ sudo apt install -y \
         software-properties-common \
         cmake \
-        libboost-all-dev
+        libboost-all-dev \
+        libsystemd-dev
 
-# And you will need to install llvm for ssvmc tool
+# And you will need to install llvm
 $ sudo apt install -y \
         llvm-dev \
         liblld-10-dev
 
-# SSVM supports both clang++ and g++ compilers
+# RUNW supports both clang++ and g++ compilers
 # You can choose one of them for building this project
 $ sudo apt install -y gcc g++
 $ sudo apt install -y clang
