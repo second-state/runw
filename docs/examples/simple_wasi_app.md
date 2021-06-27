@@ -4,7 +4,9 @@ In this example, we demonstrate how to build a standalone WASM application from 
 
 ## Prerequisites
 
-If you have not done so already, follow these simple instructions to [install Rust, Node.js, wasmedge, and ssvmup](https://www.secondstate.io/articles/setup-rust-nodejs/).
+> If you simply want a wasm bytecode file to test as a container image, you can skip the building process and just [download the wasm file here](https://github.com/second-state/wasm-learning/blob/master/ssvm/wasi/wasi_example_main.wasm).
+
+If you have not done so already, follow these simple instructions to [install Rust and rustwasmc](https://www.secondstate.io/articles/rustwasmc/) toolchain.
 
 ## Download example code
 
@@ -16,8 +18,10 @@ cd ssvm/wasi
 ## Build the WASM bytecode
 
 ```bash
-ssvmup build
+rustwasmc build
 ```
+
+The wasm bytecode application is in `target/wasm32-wasi/release/wasi_example_main.wasm` file. You can now publish and use it as a container image.
 
 ## Create Dockerfile
 
@@ -37,6 +41,13 @@ This example uses [buildah](https://github.com/containers/buildah) to build imag
 sudo buildah bud -f Dockerfile -t wasm-wasi-example
 sudo buildah push wasm-wasi-example docker://registry.example.com/repository:tag
 ```
+
+Here is an example of publishing the wasm bytecode file to the public Docker hub.
+
+```bash
+sudo buildah push wasm-wasi-example docker://hydai/wasm-wasi-example:latest
+```
+
 
 ## Create container config
 
