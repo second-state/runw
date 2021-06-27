@@ -1,12 +1,12 @@
 # Introduction
 
-**RUNW** is a OCI compatible runtime for running WASI enabled WebAssembly file inside a container envrionment.
+**RUNW** is a OCI compatible runtime for running WASI enabled WebAssembly files inside a container envrionment. We will demonstrate how to use it with the CRI-O tools.
 
 # Getting Started
 
 ## Prerequisite
 
-Please refer to their document for the installation details.
+Please install the following tools for container management.
 
 * [cri-o](https://cri-o.io/)
 * [crictl](https://github.com/kubernetes-sigs/cri-tools)
@@ -33,6 +33,9 @@ sudo apt install -y \
 ```bash
 wget https://github.com/second-state/runw/releases/download/0.1.0/runw
 ```
+
+> If you are not on Ubuntu 20.04, you will need to build your own RUNW binary. Follow instructions in the appendix.
+
 
 ## Install runw into cri-o
 
