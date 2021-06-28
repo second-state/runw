@@ -199,7 +199,7 @@ POD_ID=7992e75df00cc1cf4bff8bff660718139e3ad973c7180baceb9c84d074b516a4
 ### Create Container
 ```bash
 # Create the container instance. Output will be different from example.
-sudo crictl create $POD_ID container_nbody.json sandbox_config.json
+sudo crictl create $POD_ID container_wasi.json sandbox_config.json
 1d056e4a8a168f0c76af122d42c98510670255b16242e81f8e8bce8bd3a4476f
 ```
 
