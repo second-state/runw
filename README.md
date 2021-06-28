@@ -10,6 +10,7 @@ Please install the following tools for container management.
 
 * [cri-o](https://cri-o.io/)
 * [crictl](https://github.com/kubernetes-sigs/cri-tools)
+* [containernetworking-plugins](https://github.com/containernetworking/plugins)
 * Optional [buildah](https://github.com/containers/buildah) or [docker](https://github.com/docker/cli) for building container image
 
 ## Use pre-built runw
