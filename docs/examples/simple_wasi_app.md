@@ -45,7 +45,7 @@ sudo buildah push wasm-wasi-example docker://registry.example.com/repository:tag
 Here is an example of publishing the wasm bytecode file to the public Docker hub.
 
 ```bash
-sudo buildah push wasm-wasi-example docker://hydai/wasm-wasi-example:latest
+sudo buildah push wasm-wasi-example docker://docker.io/hydai/wasm-wasi-example:latest
 ```
 
 
