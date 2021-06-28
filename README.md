@@ -45,6 +45,7 @@ sudo crictl pull docker.io/beststeve/wasm-pause
 
 # Install runw into cri-o
 sudo cp -v runw /usr/lib/cri-o-runc/sbin/runw
+sudo chmod +x /usr/lib/cri-o-runc/sbin/runw
 sudo sed -i -e 's@default_runtime = "runc"@default_runtime = "runw"@' /etc/crio/crio.conf
 sudo sed -i -e 's@pause_image = "k8s.gcr.io/pause:3.2"@pause_image = "docker.io/beststeve/wasm-pause"@' /etc/crio/crio.conf
 sudo sed -i -e 's@pause_command = "/pause"@pause_command = "pause.wasm"@' /etc/crio/crio.conf
