@@ -10,6 +10,7 @@
 
 * [cri-o](https://cri-o.io/)
 * [crictl](https://github.com/kubernetes-sigs/cri-tools)
+* [containernetworking-plugins](https://github.com/containernetworking/plugins)
 * Optional [buildah](https://github.com/containers/buildah) or [docker](https://github.com/docker/cli) for building container image
 
 ## 使用 pre-built runw
@@ -44,6 +45,7 @@ sudo crictl pull docker.io/beststeve/wasm-pause
 
 # 安装 runw 到 cri-o
 sudo cp -v runw /usr/lib/cri-o-runc/sbin/runw
+sudo chmod +x /usr/lib/cri-o-runc/sbin/runw
 sudo sed -i -e 's@default_runtime = "runc"@default_runtime = "runw"@' /etc/crio/crio.conf
 sudo sed -i -e 's@pause_image = "k8s.gcr.io/pause:3.2"@pause_image = "docker.io/beststeve/wasm-pause"@' /etc/crio/crio.conf
 sudo sed -i -e 's@pause_command = "/pause"@pause_command = "pause.wasm"@' /etc/crio/crio.conf
@@ -197,7 +199,7 @@ POD_ID=7992e75df00cc1cf4bff8bff660718139e3ad973c7180baceb9c84d074b516a4
 ### 创建容器
 ```bash
 # 创建容器机器。输出将和例子显著不同。
-sudo crictl create $POD_ID container_nbody.json sandbox_config.json
+sudo crictl create $POD_ID container_wasi.json sandbox_config.json
 1d056e4a8a168f0c76af122d42c98510670255b16242e81f8e8bce8bd3a4476f
 ```
 
