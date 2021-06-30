@@ -17,7 +17,7 @@
 
 ### 环境
 
-我们预先构建的二进制文件是基于“ ubuntu 20.04”的，它有以下依赖项:
+我们预先构建的二进制文件是基于“ubuntu 20.04”的，它有以下依赖项:
 
 * libLLVM-10
 
@@ -132,8 +132,8 @@ sudo crictl pull docker.io/hydai/wasm-wasi-example
 }
 ```
 
-### Create sandbox configuration file
-Create a file called `sandbox_config.json` with the following content:
+### 创建沙盒配置文件
+创建名为 `sandbox_config.json` 的文件，包含如下内容：
 
 ```json
 {
