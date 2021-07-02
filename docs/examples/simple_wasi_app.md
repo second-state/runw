@@ -35,18 +35,15 @@ CMD ["wasi_example_main.wasm"]
 
 ## Create container image
 
-This example uses [buildah](https://github.com/containers/buildah) to build image. You can use any other tools to create container image.
+This example uses [docker](https://github.com/docker/cli) to build image. You can use any other tools to create container image.
+
+Here is an example of creating container image and publishing the wasm bytecode file to the public Docker hub.
 
 ```bash
-sudo buildah bud -f Dockerfile -t wasm-wasi-example
-sudo buildah push wasm-wasi-example docker://registry.example.com/repository:tag
+sudo docker build -f Dockerfile -t hydai/wasm-wasi-example:latest .
+sudo docker push hydai/wasm-wasi-example:latest
 ```
 
-Here is an example of publishing the wasm bytecode file to the public Docker hub.
-
-```bash
-sudo buildah push wasm-wasi-example docker://docker.io/hydai/wasm-wasi-example:latest
-```
 
 
 ## Create container config
