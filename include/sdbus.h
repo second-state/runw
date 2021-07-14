@@ -63,7 +63,7 @@ public:
   ~SDBusMessage() noexcept;
 
   template <typename... ArgsT>
-  cxx20::expected<void, int> read(const char *Types, ArgsT &... Args) noexcept {
+  cxx20::expected<void, int> read(const char *Types, ArgsT &...Args) noexcept {
     if (const int Err = sd_bus_message_read(Msg, Types, &Args...); Err < 0) {
       return cxx20::unexpected(-Err);
     }

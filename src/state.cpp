@@ -220,8 +220,8 @@ void State::setCreated() noexcept {
   {
     char Buffer[64];
     std::time_t Now = std::time(NULL);
-    const auto Size = std::strftime(
-        Buffer, sizeof(Buffer), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
+    const auto Size = std::strftime(Buffer, sizeof(Buffer),
+                                    "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
     CreatedTimestamp.assign(Buffer, Size);
   }
 #if defined(RUNW_OS_LINUX) || defined(RUNW_OS_MACOS)
@@ -238,8 +238,8 @@ void State::setRunning() noexcept {
   {
     char Buffer[64];
     std::time_t Now = std::time(NULL);
-    const auto Size = std::strftime(
-        Buffer, sizeof(Buffer), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
+    const auto Size = std::strftime(Buffer, sizeof(Buffer),
+                                    "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
     StartedTimestamp.assign(Buffer, Size);
   }
 }
@@ -250,8 +250,8 @@ void State::setStopped(int ExitCode) noexcept {
   {
     char Buffer[64];
     std::time_t Now = std::time(NULL);
-    const auto Size = std::strftime(
-        Buffer, sizeof(Buffer), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
+    const auto Size = std::strftime(Buffer, sizeof(Buffer),
+                                    "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&Now));
     FinishedTimestamp.assign(Buffer, Size);
   }
 }
