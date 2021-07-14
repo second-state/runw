@@ -1,0 +1,36 @@
+name: build runw
+
+concurrency:
+  group: build-${{ github.head_ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build_gcc:
+    runs-on: ubuntu-latest
+    container:
+      image: secondstate/runw:latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Install deps
+      run: |
+        apt update && apt install -y pkg-config
+    - name: Run clang-format
+      run: |
+        apt install -y clang-format-12
+        clang-format-12 -i -style=file **/*.h **/*.cpp **/*.in
+        git diff --exit-code .
+    - name: Build RUNW using gcc
+      run: |
+        mkdir -p build && cd build
+        cmake -DCMAKE_BUILD_TYPE=Release .. && make -j
