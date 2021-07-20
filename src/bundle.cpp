@@ -60,38 +60,6 @@ bool Bundle::load(const std::filesystem::path &Path,
             }
             this->Args.emplace_back(ArgStr);
           }
-        } else if (Key == "annotations"sv) {
-          simdjson::dom::object Annotations;
-          if (auto Error = Element.get(Annotations)) {
-            spdlog::error("load Annotations failed: {}"sv,
-                          simdjson::error_message(Error));
-            return false;
-          }
-          for (const auto &[Key, Element] : Annotations) {
-            switch (Key[0]) {
-            case 'o':
-              if (Key == "org.wasmedge.exec.allow_commands"sv) {
-                simdjson::dom::array Cmds;
-                if (auto Error = Element.get(Cmds)) {
-                  spdlog::error("load cmds failed: {}"sv,
-                                simdjson::error_message(Error));
-                  return false;
-                }
-                for (const auto &Cmd : Cmds) {
-                  std::string_view CmdStr;
-                  if (auto Error = Cmd.get(CmdStr)) {
-                    spdlog::error("load cmds cmd failed: {}"sv,
-                                  simdjson::error_message(Error));
-                    return false;
-                  }
-                  this->Cmds.emplace_back(CmdStr);
-                }
-              }
-              break;
-            default:
-              break;
-            }
-          }
         }
         break;
       case 'c':
@@ -726,6 +694,42 @@ bool Bundle::load(const std::filesystem::path &Path,
 
   for (const auto &[Key, Element] : Config) {
     switch (Key[0]) {
+    case 'a':
+      if (Key == "annotations"sv) {
+        simdjson::dom::object Annotations;
+        if (auto Error = Element.get(Annotations)) {
+          spdlog::error("load Annotations failed: {}"sv,
+              simdjson::error_message(Error));
+          return false;
+        }
+        for (const auto &[Key, Element] : Annotations) {
+          switch (Key[0]) {
+            case 'o':
+              if (Key == "org.wasmedge.exec.allow_commands"sv) {
+                simdjson::dom::array Cmds;
+                if (auto Error = Element.get(Cmds)) {
+                  spdlog::error("load cmds failed: {}"sv,
+                      simdjson::error_message(Error));
+                  return false;
+                }
+                for (const auto &Cmd : Cmds) {
+                  std::string_view CmdStr;
+                  if (auto Error = Cmd.get(CmdStr)) {
+                    spdlog::error("load cmds cmd failed: {}"sv,
+                        simdjson::error_message(Error));
+                    return false;
+                  }
+                  spdlog::info("Get cmd: {}"sv, CmdStr);
+                  this->Cmds.emplace_back(CmdStr);
+                }
+              }
+              break;
+            default:
+              break;
+          }
+        }
+      }
+      break;
     case 'm':
       if (Key == "mounts"sv) {
         simdjson::dom::array Mounts;
