@@ -81,7 +81,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   ssvm
   GIT_REPOSITORY https://github.com/second-state/SSVM.git
-  GIT_TAG        hydai/runc-wasi-fs
+  GIT_TAG        hydai/runw-unrelease-deps
 )
 
 FetchContent_MakeAvailable(simdjson ssvm)

@@ -24,6 +24,7 @@ public:
   std::string_view cwd() const noexcept { return Cwd; }
   cxx20::span<const std::string> envs() const noexcept { return Envs; }
   cxx20::span<const std::string> args() const noexcept { return Args; }
+  cxx20::span<const std::string> cmds() const noexcept { return Cmds; }
   std::string_view rootPath() const noexcept { return RootPath; }
   std::string_view linuxCgroupsPath() const noexcept { return CgroupsPath; }
   cxx20::span<const NamespaceDesc> linuxNamespaces() const noexcept {
@@ -40,6 +41,7 @@ private:
   std::string Cwd{};
   std::vector<std::string> Envs{};
   std::vector<std::string> Args{};
+  std::vector<std::string> Cmds{};
   std::string CommandLine{};
 
   // POSIX Process
