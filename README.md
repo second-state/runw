@@ -32,7 +32,7 @@ sudo apt install -y \
 ### Get pre-built runw from the release page
 
 ```bash
-wget https://github.com/second-state/runw/releases/download/0.1.0/runw
+wget https://github.com/second-state/runw/releases/download/0.1.1/runw
 ```
 
 > If you are not on Ubuntu 20.04, you will need to build your own RUNW binary. Follow instructions in the appendix.
@@ -267,7 +267,7 @@ Test 7: Delete the previous file
 ```bash
 $ git clone git@github.com:second-state/runw.git
 $ cd runw
-$ git checkout 0.1.0
+$ git checkout 0.1.1
 ```
 
 ### Prepare the environment

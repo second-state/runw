@@ -32,7 +32,7 @@ sudo apt install -y \
 ### 从发布页面获得预先构建的 runw
 
 ```bash
-wget https://github.com/second-state/runw/releases/download/0.1.0/runw
+wget https://github.com/second-state/runw/releases/download/0.1.1/runw
 ```
 
 > 如果你没有使用 Ubuntu 20.04，你需要构建自己的 RUNW 二进制文件。按照附录中的说明操作。
@@ -267,7 +267,7 @@ Test 7: 删除之前的文件
 ```bash
 $ git clone git@github.com:second-state/runw.git
 $ cd runw
-$ git checkout 0.1.0
+$ git checkout 0.1.1
 ```
 
 ### 准备环境
