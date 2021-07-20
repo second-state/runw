@@ -12,6 +12,7 @@
 #include <common/log.h>
 #include <cstdlib>
 #include <host/wasi/wasimodule.h>
+#include <host/wasmedge_process/processmodule.h>
 #include <iostream>
 #include <po/argument_parser.h>
 #include <po/subcommand.h>
@@ -285,6 +286,9 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   WasmEdge::Host::WasiModule *WasiMod =
       dynamic_cast<WasmEdge::Host::WasiModule *>(
           VM.getImportModule(WasmEdge::HostRegistration::Wasi));
+  WasmEdge::Host::WasmEdgeProcessModule *ProcMod =
+      dynamic_cast<WasmEdge::Host::WasmEdgeProcessModule *>(
+          VM.getImportModule(WasmEdge::HostRegistration::WasmEdge_Process));
 
   const auto &Bundle = State.bundle();
 
@@ -293,6 +297,7 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   Cwd += std::filesystem::u8path(Bundle.cwd());
   std::vector<std::string> Args(Bundle.args().begin(), Bundle.args().end());
   std::vector<std::string> Envs(Bundle.envs().begin(), Bundle.envs().end());
+  std::vector<std::string> Cmds(Bundle.cmds().begin(), Bundle.cmds().end());
   auto WasmPath = Cwd / std::filesystem::u8path(Args[0]);
 
   spdlog::info("cwd: {}"sv, Cwd);
@@ -306,10 +311,18 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   for (auto &Env : Envs) {
     spdlog::info("\tenv: {}", Env);
   }
+  spdlog::info("cmds:"sv);
+  for (auto &Cmd : Cmds) {
+    spdlog::info("\tcmd: {}", Cmd);
+  }
 
   WasiMod->getEnv().init(
       std::array{"/:"s + RootPath.u8string()}, WasmPath.u8string(),
       WasmEdge::Span<const std::string>(Args).subspan(1), Envs);
+
+  for (auto &Cmd : Cmds) {
+    ProcMod->getEnv().AllowedCmd.insert(Cmd);
+  }
 
   std::filesystem::path SoPath;
   {
