@@ -323,6 +323,9 @@ int doRunInternal(std::string_view ContainerId, std::string_view PidFile,
   for (auto &Cmd : Cmds) {
     ProcMod->getEnv().AllowedCmd.insert(Cmd);
   }
+  // FIXME: Disable WasmEdge Process Whitelist Protection
+  spdlog::info("Allow all commands to execute"sv);
+  ProcMod->getEnv().AllowedAll = true;
 
   std::filesystem::path SoPath;
   {
